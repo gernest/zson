@@ -1009,7 +1009,9 @@ pub const Value = union(enum).{
     Array: ArrayList(Value),
     Object: ObjectMap,
 
-    pub fn dump(self: Value, out: *io.BufferOutStream.Stream) error!void {
+    /// writes the value in json string to out, out implements io.OutStream
+    /// interface.
+    pub fn dump(self: Value, out: var) error!void {
         switch (self) {
             Value.Null => {
                 try out.print("null");
@@ -1056,7 +1058,7 @@ pub const Value = union(enum).{
         }
     }
 
-    pub fn dumpIndent(self: Value, indent: usize, out: *io.BufferOutStream.Stream) error!void {
+    pub fn dumpIndent(self: Value, indent: usize, out: var) error!void {
         if (indent == 0) {
             try self.dump(out);
         } else {
@@ -1064,7 +1066,7 @@ pub const Value = union(enum).{
         }
     }
 
-    fn dumpIndentLevel(self: Value, indent: usize, level: usize, out: *io.BufferOutStream.Stream) error!void {
+    fn dumpIndentLevel(self: Value, indent: usize, level: usize, out: var) error!void {
         switch (self) {
             Value.Null => {
                 try out.print("null");
@@ -1118,7 +1120,7 @@ pub const Value = union(enum).{
         }
     }
 
-    fn padSpace(indent: usize, out: *io.BufferOutStream.Stream) error!void {
+    fn padSpace(indent: usize, out: var) error!void {
         var i: usize = 0;
         while (i < indent) : (i += 1) {
             try out.print(" ");
