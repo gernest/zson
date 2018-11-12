@@ -905,64 +905,6 @@ pub const TokenStream = struct.{
     }
 };
 
-fn checkNext(p: *TokenStream, id: Token.Id) void {
-    const token = (p.next() catch unreachable).?;
-    debug.assert(token.id == id);
-}
-
-test "token" {
-    const s =
-        \\{
-        \\  "Image": {
-        \\      "Width":  800,
-        \\      "Height": 600,
-        \\      "Title":  "View from 15th Floor",
-        \\      "Thumbnail": {
-        \\          "Url":    "http://www.example.com/image/481989943",
-        \\          "Height": 125,
-        \\          "Width":  100
-        \\      },
-        \\      "Animated" : false,
-        \\      "IDs": [116, 943, 234, 38793]
-        \\    }
-        \\}
-    ;
-
-    var p = TokenStream.init(s);
-
-    checkNext(&p, Token.Id.ObjectBegin);
-    checkNext(&p, Token.Id.String); // Image
-    checkNext(&p, Token.Id.ObjectBegin);
-    checkNext(&p, Token.Id.String); // Width
-    checkNext(&p, Token.Id.Number);
-    checkNext(&p, Token.Id.String); // Height
-    checkNext(&p, Token.Id.Number);
-    checkNext(&p, Token.Id.String); // Title
-    checkNext(&p, Token.Id.String);
-    checkNext(&p, Token.Id.String); // Thumbnail
-    checkNext(&p, Token.Id.ObjectBegin);
-    checkNext(&p, Token.Id.String); // Url
-    checkNext(&p, Token.Id.String);
-    checkNext(&p, Token.Id.String); // Height
-    checkNext(&p, Token.Id.Number);
-    checkNext(&p, Token.Id.String); // Width
-    checkNext(&p, Token.Id.Number);
-    checkNext(&p, Token.Id.ObjectEnd);
-    checkNext(&p, Token.Id.String); // Animated
-    checkNext(&p, Token.Id.False);
-    checkNext(&p, Token.Id.String); // IDs
-    checkNext(&p, Token.Id.ArrayBegin);
-    checkNext(&p, Token.Id.Number);
-    checkNext(&p, Token.Id.Number);
-    checkNext(&p, Token.Id.Number);
-    checkNext(&p, Token.Id.Number);
-    checkNext(&p, Token.Id.ArrayEnd);
-    checkNext(&p, Token.Id.ObjectEnd);
-    checkNext(&p, Token.Id.ObjectEnd);
-
-    debug.assert((try p.next()) == null);
-}
-
 // Validate a JSON string. This does not limit number precision so a decoder may not necessarily
 // be able to decode the string even if this returns true.
 pub fn validate(s: []const u8) bool {
@@ -978,10 +920,6 @@ pub fn validate(s: []const u8) bool {
     }
 
     return p.complete;
-}
-
-test "json validate" {
-    debug.assert(validate("{}"));
 }
 
 const Allocator = std.mem.Allocator;
@@ -1127,16 +1065,6 @@ pub const Value = union(enum).{
         }
     }
 };
-
-test "Value" {
-    const v = Value.{ .Integer = 13 };
-    var b = try std.Buffer.init(debug.global_allocator, "");
-    var buf = &b;
-    defer buf.deinit();
-    var stream = &io.BufferOutStream.init(buf).stream;
-    try v.dump(stream);
-    debug.warn("\nJSON {}\n", buf.toSlice());
-}
 
 // A non-stream JSON parser which constructs a tree of Value's.
 pub const Parser = struct.{
@@ -1359,44 +1287,3 @@ pub const Parser = struct.{
             @panic("TODO: fmt.parseFloat not yet implemented");
     }
 };
-
-test "json parser dynamic" {
-    var p = Parser.init(debug.global_allocator, false);
-    defer p.deinit();
-
-    const s =
-        \\{
-        \\  "Image": {
-        \\      "Width":  800,
-        \\      "Height": 600,
-        \\      "Title":  "View from 15th Floor",
-        \\      "Thumbnail": {
-        \\          "Url":    "http://www.example.com/image/481989943",
-        \\          "Height": 125,
-        \\          "Width":  100
-        \\      },
-        \\      "Animated" : false,
-        \\      "IDs": [116, 943, 234, 38793]
-        \\    }
-        \\}
-    ;
-
-    var tree = try p.parse(s);
-    defer tree.deinit();
-
-    var root = tree.root;
-
-    var image = root.Object.get("Image").?.value;
-
-    const width = image.Object.get("Width").?.value;
-    debug.assert(width.Integer == 800);
-
-    const height = image.Object.get("Height").?.value;
-    debug.assert(height.Integer == 600);
-
-    const title = image.Object.get("Title").?.value;
-    debug.assert(mem.eql(u8, title.String, "View from 15th Floor"));
-
-    const animated = image.Object.get("Animated").?.value;
-    debug.assert(animated.Bool == false);
-}

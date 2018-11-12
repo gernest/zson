@@ -4,13 +4,14 @@
 // Read also http://seriot.ch/parsing_json.php for a good overview.
 
 const std = @import("std");
+const json = @import("main.zig");
 
 fn ok(comptime s: []const u8) void {
-    std.debug.assert(std.json.validate(s));
+    std.debug.assert(json.validate(s));
 }
 
 fn err(comptime s: []const u8) void {
-    std.debug.assert(!std.json.validate(s));
+    std.debug.assert(!json.validate(s));
 }
 
 fn any(comptime s: []const u8) void {
@@ -1901,4 +1902,117 @@ test "i_structure_UTF-8_BOM_empty_object" {
     any(
         \\ï»¿{}
     );
+}
+
+test "Value" {
+    const v = json.Value.{ .Integer = 13 };
+    var b = try std.Buffer.init(std.debug.global_allocator, "");
+    var buf = &b;
+    defer buf.deinit();
+    var stream = &std.io.BufferOutStream.init(buf).stream;
+    try v.dump(stream);
+    std.debug.warn("\nJSON {}\n", buf.toSlice());
+}
+
+test "json parser dynamic" {
+    var p = json.Parser.init(std.debug.global_allocator, false);
+    defer p.deinit();
+
+    const s =
+        \\{
+        \\  "Image": {
+        \\      "Width":  800,
+        \\      "Height": 600,
+        \\      "Title":  "View from 15th Floor",
+        \\      "Thumbnail": {
+        \\          "Url":    "http://www.example.com/image/481989943",
+        \\          "Height": 125,
+        \\          "Width":  100
+        \\      },
+        \\      "Animated" : false,
+        \\      "IDs": [116, 943, 234, 38793]
+        \\    }
+        \\}
+    ;
+
+    var tree = try p.parse(s);
+    defer tree.deinit();
+
+    var root = tree.root;
+
+    var image = root.Object.get("Image").?.value;
+
+    const width = image.Object.get("Width").?.value;
+    std.debug.assert(width.Integer == 800);
+
+    const height = image.Object.get("Height").?.value;
+    std.debug.assert(height.Integer == 600);
+
+    const title = image.Object.get("Title").?.value;
+    std.debug.assert(std.mem.eql(u8, title.String, "View from 15th Floor"));
+
+    const animated = image.Object.get("Animated").?.value;
+    std.debug.assert(animated.Bool == false);
+}
+
+fn checkNext(p: *json.TokenStream, id: json.Token.Id) void {
+    const token = (p.next() catch unreachable).?;
+    std.debug.assert(token.id == id);
+}
+
+test "token" {
+    const s =
+        \\{
+        \\  "Image": {
+        \\      "Width":  800,
+        \\      "Height": 600,
+        \\      "Title":  "View from 15th Floor",
+        \\      "Thumbnail": {
+        \\          "Url":    "http://www.example.com/image/481989943",
+        \\          "Height": 125,
+        \\          "Width":  100
+        \\      },
+        \\      "Animated" : false,
+        \\      "IDs": [116, 943, 234, 38793]
+        \\    }
+        \\}
+    ;
+
+    var p = json.TokenStream.init(s);
+
+    checkNext(&p, json.Token.Id.ObjectBegin);
+    checkNext(&p, json.Token.Id.String); // Image
+    checkNext(&p, json.Token.Id.ObjectBegin);
+    checkNext(&p, json.Token.Id.String); // Width
+    checkNext(&p, json.Token.Id.Number);
+    checkNext(&p, json.Token.Id.String); // Height
+    checkNext(&p, json.Token.Id.Number);
+    checkNext(&p, json.Token.Id.String); // Title
+    checkNext(&p, json.Token.Id.String);
+    checkNext(&p, json.Token.Id.String); // Thumbnail
+    checkNext(&p, json.Token.Id.ObjectBegin);
+    checkNext(&p, json.Token.Id.String); // Url
+    checkNext(&p, json.Token.Id.String);
+    checkNext(&p, json.Token.Id.String); // Height
+    checkNext(&p, json.Token.Id.Number);
+    checkNext(&p, json.Token.Id.String); // Width
+    checkNext(&p, json.Token.Id.Number);
+    checkNext(&p, json.Token.Id.ObjectEnd);
+    checkNext(&p, json.Token.Id.String); // Animated
+    checkNext(&p, json.Token.Id.False);
+    checkNext(&p, json.Token.Id.String); // IDs
+    checkNext(&p, json.Token.Id.ArrayBegin);
+    checkNext(&p, json.Token.Id.Number);
+    checkNext(&p, json.Token.Id.Number);
+    checkNext(&p, json.Token.Id.Number);
+    checkNext(&p, json.Token.Id.Number);
+    checkNext(&p, json.Token.Id.ArrayEnd);
+    checkNext(&p, json.Token.Id.ObjectEnd);
+    checkNext(&p, json.Token.Id.ObjectEnd);
+
+    std.debug.assert((try p.next()) == null);
+}
+
+test "json validate" {
+    std.debug.assert(json.validate("{}"));
 }
