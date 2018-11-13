@@ -7,11 +7,10 @@ const debug = std.debug;
 const mem = std.mem;
 const io = std.io;
 
-
 // A single token slice into the parent string.
 //
 // Use `token.slice()` on the input at the current position to get the current slice.
-pub const Token = struct{
+pub const Token = struct {
     id: Id,
     // How many bytes do we skip before counting
     offset: u1,
@@ -22,7 +21,7 @@ pub const Token = struct{
     // How many bytes from the current position behind the start of this token is.
     count: usize,
 
-    pub const Id = enum{
+    pub const Id = enum {
         ObjectBegin,
         ObjectEnd,
         ArrayBegin,
@@ -88,7 +87,7 @@ pub const Token = struct{
 // Conforms strictly to RFC8529.
 //
 // For a non-byte based wrapper, consider using TokenStream instead.
-pub const StreamingParser = struct{
+pub const StreamingParser = struct {
     // Current state
     state: State,
     // How many bytes we have counted for the current token
@@ -130,7 +129,7 @@ pub const StreamingParser = struct{
         p.number_is_integer = true;
     }
 
-    pub const State = enum{
+    pub const State = enum {
         // These must be first with these explicit values as we rely on them for indexing the
         // bit-stack directly and avoiding a branch.
         ObjectSeparator = 0,
@@ -859,7 +858,7 @@ pub const StreamingParser = struct{
 };
 
 // A small wrapper over a StreamingParser for full slices. Returns a stream of json Tokens.
-pub const TokenStream = struct{
+pub const TokenStream = struct {
     i: usize,
     slice: []const u8,
     parser: StreamingParser,
@@ -928,7 +927,7 @@ const ArenaAllocator = std.heap.ArenaAllocator;
 const ArrayList = std.ArrayList;
 const HashMap = std.HashMap;
 
-pub const ValueTree = struct{
+pub const ValueTree = struct {
     arena: ArenaAllocator,
     root: Value,
 
@@ -939,7 +938,7 @@ pub const ValueTree = struct{
 
 pub const ObjectMap = HashMap([]const u8, Value, mem.hash_slice_u8, mem.eql_slice_u8);
 
-pub const Value = union(enum){
+pub const Value = union(enum) {
     Null,
     Bool: bool,
     Integer: i64,
@@ -950,7 +949,7 @@ pub const Value = union(enum){
 
     /// writes the value in json string to out, out implements io.OutStream
     /// interface.
-    pub fn dump(self: Value, out: var) error!void {
+    pub fn dump(self: Value, out: var) anyerror!void {
         switch (self) {
             Value.Null => {
                 try out.print("null");
@@ -997,7 +996,7 @@ pub const Value = union(enum){
         }
     }
 
-    pub fn dumpIndent(self: Value, indent: usize, out: var) error!void {
+    pub fn dumpIndent(self: Value, indent: usize, out: var) anyerror!void {
         if (indent == 0) {
             try self.dump(out);
         } else {
@@ -1005,7 +1004,7 @@ pub const Value = union(enum){
         }
     }
 
-    fn dumpIndentLevel(self: Value, indent: usize, level: usize, out: var) error!void {
+    fn dumpIndentLevel(self: Value, indent: usize, level: usize, out: var) anyerror!void {
         switch (self) {
             Value.Null => {
                 try out.print("null");
@@ -1059,7 +1058,7 @@ pub const Value = union(enum){
         }
     }
 
-    fn padSpace(indent: usize, out: var) error!void {
+    fn padSpace(indent: usize, out: var) anyerror!void {
         var i: usize = 0;
         while (i < indent) : (i += 1) {
             try out.print(" ");
@@ -1068,14 +1067,14 @@ pub const Value = union(enum){
 };
 
 // A non-stream JSON parser which constructs a tree of Value's.
-pub const Parser = struct{
+pub const Parser = struct {
     allocator: *Allocator,
     state: State,
     copy_strings: bool,
     // Stores parent nodes and un-combined Values.
     stack: ArrayList(Value),
 
-    const State = enum{
+    const State = enum {
         ObjectKey,
         ObjectValue,
         ArrayValue,
