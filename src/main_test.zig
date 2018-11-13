@@ -1905,7 +1905,7 @@ test "i_structure_UTF-8_BOM_empty_object" {
 }
 
 test "Value" {
-    const v = json.Value.{ .Integer = 13 };
+    const v = json.Value{ .Integer = 13 };
     var b = try std.Buffer.init(std.debug.global_allocator, "");
     var buf = &b;
     defer buf.deinit();
